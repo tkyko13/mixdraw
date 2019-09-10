@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Step Firebase</title>
+    <!-- vuetify -->
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/@mdi/font@3.x/css/materialdesignicons.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css"
+      rel="stylesheet"
+    />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui"
+    />
+
+    <!-- The core Firebase JS SDK is always required and must be listed first -->
+    <script src="https://www.gstatic.com/firebasejs/6.6.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/6.6.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/6.6.0/firebase-database.js"></script>
+    <!-- Vue -->
+    <script src="https://unpkg.com/vue"></script>
+    <!-- vuetify -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <!-- p5js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.9.0/p5.js"></script>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>Mixdraw</h1>
+      <h5>みんなの一筆書きをガッチャンコ</h5>
+      <div id="app">
+        <v-container class="text-center">
+          <v-row>
+            <v-col cols="8" sm="10">
+              <v-text-field
+                v-model="themaAddText"
+                label="テーマの追加"
+                required
+              ></v-text-field>
+            </v-col>
+            <v-col cols="4" sm="2">
+              <v-btn @click="addThema">送信</v-btn>
+            </v-col>
+          </v-row>
+        </v-container>
+
+        <div>
+          <v-select
+            v-model="themaSelected"
+            :items="themaItems"
+            filled
+            label="テーマの選択"
+            v-on:change="changeThema()"
+          ></v-select>
+        </div>
+
+        <div id="p5container"></div>
+
+        <div>
+          <h5>
+            {{ themaSelected }}
+            の足りない部分を補うように書いてみよう(ここv-if使いたい)
+          </h5>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Your web app's Firebase configuration
+      // Firebase を JavaScript プロジェクトに追加する  |  Firebase
+      // https://firebase.google.com/docs/web/setup?hl=ja
+      // https://support.google.com/firebase/answer/7015592?hl=ja
+      const firebaseConfig = {
+        apiKey: "AIzaSyC91fvS-3l_glFOqhIc0t2Rt5DE4mbgrNI",
+        authDomain: "mixdraw-1d864.firebaseapp.com",
+        databaseURL: "https://mixdraw-1d864.firebaseio.com",
+        projectId: "mixdraw-1d864",
+        storageBucket: "mixdraw-1d864.appspot.com",
+        messagingSenderId: "3936815818",
+        appId: "1:3936815818:web:4cbf5180db13cd30634233"
+      };
+
+      // Initialize Firebase
+      var myproject = firebase.initializeApp(firebaseConfig);
+      var database = myproject.database();
+
+      // ref
+      this.themaItemsRef = this.database.ref("themaItems");
+      this.lineItemsRef = this.database.ref("lineItems");
+      // テストデータ
+      // this.lineItemsRef.child("亀").push({
+      //   length: 3,
+      //   x: [100, 200, 300],
+      //   y: [40, 300, 200]
+      // });
+
+      var _this = this;
+      var app = new Vue({
+        el: "#app",
+        vuetify: new Vuetify(),
+        data: function() {
+          return {
+            themaSelected: "",
+            themaItems: [],
+            currLineItems: [],
+            themaAddText: ""
+          };
+        },
+        methods: {
+          changeThema: function() {
+            // console.log(app.themaSelected);
+            app.currLineItems = [];
+            _this.lineItemsRef
+              .child(app.themaSelected)
+              .limitToLast(100)
+              .once("value")
+              .then(function(snapshot) {
+                var items = [];
+                // app.currLineItems = snapshot;
+                snapshot.forEach(function(childSnapshot) {
+                  // console.log(childSnapshot.val());
+                  app.currLineItems.push(childSnapshot.val());
+                });
+                drawIndex = 0; //やだねぇ
+                p5canvas.background(255);
+              });
+          },
+          addThema: function() {
+            if (app.themaAddText) {
+              console.log(app.themaAddText);
+              app.themaItems.push(app.themaAddText);
+              _this.themaItemsRef.set(app.themaItems);
+            }
+            app.themaAddText = "";
+          }
+        }
+      });
+
+      this.themaItemsRef.on("value", function(snapshot) {
+        // _this.themaItems = snapshot.val();
+        console.log("themaItems changed ---------------");
+        console.log(snapshot.val());
+        _this.app.themaItems = snapshot.val();
+      });
+
+      var drawIndex = 0;
+      var p5canvas;
+      var mxs = [],
+        mys = [];
+      function setup() {
+        p5canvas = createCanvas(600, 400);
+        p5canvas.parent("p5container");
+        frameRate(30);
+        background(255);
+      }
+
+      function draw() {
+        if (app.currLineItems) {
+          // console.log(app.currLineItems.length);
+          for (let i = 0; i < app.currLineItems.length; i++) {
+            let cLine = app.currLineItems[i];
+            // console.log(drawIndex, cLine.length);
+            if (drawIndex < cLine.length - 1) {
+              line(
+                cLine.x[drawIndex],
+                cLine.y[drawIndex],
+                cLine.x[drawIndex + 1],
+                cLine.y[drawIndex + 1]
+              );
+            }
+          }
+          drawIndex++;
+        } else {
+          drawIndex = 0;
+        }
+        if (mouseIsPressed) {
+          mxs.push(mouseX);
+          mys.push(mouseY);
+          line(mouseX, mouseY, pmouseX, pmouseY);
+          drawIndex = 0;
+        }
+      }
+      function mouseReleased() {
+        if (mxs.length > 10) {
+          _this.lineItemsRef.child(app.themaSelected).push({
+            length: mxs.length,
+            x: mxs,
+            y: mys
+          });
+          app.changeThema();
+        }
+        mxs = [];
+        mys = [];
+      }
+    </script>
+  </body>
+</html>
